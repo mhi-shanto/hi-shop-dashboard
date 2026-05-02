@@ -25,7 +25,7 @@ export interface ProductVariant {
   size: string | null;
   color: string | null;
   stock: number;
-  priceModifier: DecimalValue;
+  priceModifier: number;
   isActive: boolean;
 }
 
@@ -35,7 +35,7 @@ export interface IProduct {
   name: string;
   slug: string;
   description: string;
-  basePrice: DecimalValue;
+  basePrice: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

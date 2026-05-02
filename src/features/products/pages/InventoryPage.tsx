@@ -7,7 +7,6 @@ import { StatusBadge } from "@/shared/components/StatusBadge";
 import { Pagination } from "@/shared/components/Pagination";
 import { useNavigate } from "react-router-dom";
 import useGetProducts from "../hooks/useGetProducts";
-import type { DecimalValue } from "../schemas/types";
 
 const stockStatusColors: Record<string, string> = {
   "In Stock": "text-tertiary bg-tertiary/10",
@@ -21,12 +20,9 @@ const getStockStatus = (stock: number) => {
   return "Out";
 };
 
-const parseDecimal = (value: DecimalValue): number => {
-  if (!value || !value.d || value.d.length === 0) return 0;
-  return value.s * value.d[0] * Math.pow(10, value.e - (value.d.length - 1));
-};
-
-const getPrimaryImage = (images: { url: string; altText: string; isPrimary: boolean }[]) => {
+const getPrimaryImage = (
+  images: { url: string; altText: string; isPrimary: boolean }[],
+) => {
   return images.find((img) => img.isPrimary) ?? images[0];
 };
 
@@ -96,7 +92,10 @@ const InventoryPage = () => {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-outline-variant/5 last:border-0">
+                  <tr
+                    key={i}
+                    className="border-b border-outline-variant/5 last:border-0"
+                  >
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
                         <div className="h-9 w-9 rounded-lg bg-surface-container animate-pulse shrink-0" />
@@ -118,7 +117,9 @@ const InventoryPage = () => {
                   <td colSpan={7} className="px-5 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Package className="h-8 w-8 text-on-surface-variant/30" />
-                      <p className="text-sm text-on-surface-variant">No products found.</p>
+                      <p className="text-sm text-on-surface-variant">
+                        No products found.
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -126,7 +127,7 @@ const InventoryPage = () => {
                 filtered.map((product) => {
                   const primaryImage = getPrimaryImage(product.images);
                   const totalStock = getTotalStock(product.variants);
-                  const price = parseDecimal(product.basePrice);
+                  const price = product.basePrice;
 
                   return (
                     <tr
@@ -177,10 +178,12 @@ const InventoryPage = () => {
                       </td>
 
                       <td className="px-3 py-3 text-sm font-semibold text-on-surface">
-                        ${price.toFixed(2)}
+                        ${price}
                       </td>
 
-                      <td className="px-3 py-3 text-sm text-on-surface">{totalStock}</td>
+                      <td className="px-3 py-3 text-sm text-on-surface">
+                        {totalStock}
+                      </td>
 
                       <td className="px-3 py-3">
                         <StatusBadge
@@ -192,7 +195,9 @@ const InventoryPage = () => {
                       <td className="px-3 py-3">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => navigate(`/admin/inventory/${product.id}/edit`)}
+                            onClick={() =>
+                              navigate(`/admin/inventory/${product.id}/edit`)
+                            }
                             className="text-on-surface-variant hover:text-primary transition-colors p-1"
                             aria-label="Edit product"
                           >
@@ -225,7 +230,9 @@ const InventoryPage = () => {
         ) : (
           !isLoading && (
             <div className="px-5 py-3 border-t border-outline-variant/10">
-              <p className="text-xs text-on-surface-variant">{filtered.length} products</p>
+              <p className="text-xs text-on-surface-variant">
+                {filtered.length} products
+              </p>
             </div>
           )
         )}

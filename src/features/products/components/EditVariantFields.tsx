@@ -28,14 +28,6 @@ interface EditVariantFieldsProps {
   onRefresh: () => void;
 }
 
-const parseDecimalNum = (
-  d: { s: number; e: number; d: number[] } | number,
-): number => {
-  if (typeof d === "number") return d;
-  if (!d || !d.d || d.d.length === 0) return 0;
-  return d.s * d.d[0] * Math.pow(10, d.e - (d.d.length - 1));
-};
-
 interface VariantEditRowProps {
   variant: ProductVariant;
   productId: string;
@@ -75,7 +67,7 @@ const VariantEditRow = ({
       size: variant.size ?? "",
       color: variant.color ?? "",
       stock: variant.stock,
-      priceModifier: parseDecimalNum(variant.priceModifier) || undefined,
+      priceModifier: variant.priceModifier,
       isActive: variant.isActive,
     },
   });
@@ -86,7 +78,7 @@ const VariantEditRow = ({
       size: variant.size ?? "",
       color: variant.color ?? "",
       stock: variant.stock,
-      priceModifier: parseDecimalNum(variant.priceModifier) || undefined,
+      priceModifier: variant.priceModifier,
       isActive: variant.isActive,
     });
     setIsEditing(true);
@@ -114,9 +106,19 @@ const VariantEditRow = ({
     const result = await onDelete(variant.id);
     if (result.success) {
       onRefresh();
+      toast.success("Variant deleted successfully", {
+        description: "The variant has been deleted successfully.",
+        duration: 2000,
+        position: "top-center",
+      });
     } else {
       setRowError(result.error ?? "Failed to delete.");
       setConfirmDelete(false);
+      toast.error("Failed to delete variant.", {
+        description: "The variant has not been deleted.",
+        duration: 2000,
+        position: "top-center",
+      });
     }
   };
 
@@ -278,11 +280,11 @@ const VariantEditRow = ({
                 {variant.stock}
               </span>
             </span>
-            {parseDecimalNum(variant.priceModifier) > 0 && (
+            {variant.priceModifier > 0 && (
               <span className="text-xs text-on-surface-variant">
                 Modifier:{" "}
                 <span className="font-semibold text-on-surface">
-                  +${parseDecimalNum(variant.priceModifier).toFixed(2)}
+                  +${variant.priceModifier}
                 </span>
               </span>
             )}
