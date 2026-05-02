@@ -1,56 +1,65 @@
 import axios from "axios";
+import mem from "mem";
 
-const ACCESS_TOKEN_KEY = "hi-shop-access-token";
-const REFRESH_TOKEN_KEY = "hi-shop-refresh-token";
-const AUTH_KEY = "hi-shop-auth";
+const ACCESS_TOKEN_KEY = "accessToken";
+const REFRESH_TOKEN_KEY = "refreshToken";
 
-export const getAccessToken = (): string | null =>
-  localStorage.getItem(ACCESS_TOKEN_KEY);
+const getCookie = (name: string): string | null => {
+  const match = document.cookie
+    .split("; ")
+    .find((row) => row.startsWith(`${name}=`));
+  return match ? decodeURIComponent(match.split("=")[1]) : null;
+};
+
+const setCookie = (name: string, value: string, days = 30): void => {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+};
+
+const removeCookie = (name: string): void => {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+};
+
+export const getAccessToken = (): string | null => getCookie(ACCESS_TOKEN_KEY);
 
 export const getRefreshToken = (): string | null =>
-  localStorage.getItem(REFRESH_TOKEN_KEY);
+  getCookie(REFRESH_TOKEN_KEY);
 
 export const setTokens = (access: string, refresh: string): void => {
-  localStorage.setItem(ACCESS_TOKEN_KEY, access);
-  localStorage.setItem(REFRESH_TOKEN_KEY, refresh);
-  localStorage.setItem(AUTH_KEY, "true");
+  setCookie(ACCESS_TOKEN_KEY, access);
+  setCookie(REFRESH_TOKEN_KEY, refresh);
 };
 
 export const clearTokens = (): void => {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_KEY);
+  removeCookie(ACCESS_TOKEN_KEY);
+  removeCookie(REFRESH_TOKEN_KEY);
 };
 
-let refreshPromise: Promise<string | null> | null = null;
-
-export const memoizedRefreshToken = (): Promise<string | null> => {
-  if (refreshPromise) return refreshPromise;
-
-  refreshPromise = (async () => {
-    try {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) return null;
-
-      const { data } = await axios.post(
-        `${import.meta.env.VITE_API_BASE_URL}/auth/refresh-tokens`,
-        { refreshToken },
-      );
-
-      const newAccess: string | undefined = data?.data?.access?.token;
-      const newRefresh: string | undefined = data?.data?.refresh?.token;
-
-      if (!newAccess) return null;
-
-      setTokens(newAccess, newRefresh ?? refreshToken);
-      return newAccess;
-    } catch {
-      clearTokens();
-      return null;
-    } finally {
-      refreshPromise = null;
+const refreshToken = async () => {
+  try {
+    const existingRefreshToken = getCookie(REFRESH_TOKEN_KEY);
+    if (!existingRefreshToken) {
+      throw new Error("No refresh token found");
     }
-  })();
+    const { data } = await axios.post(
+      `${import.meta.env.VITE_API_BASE_URL}/auth/refresh`,
+      {
+        refreshToken: existingRefreshToken,
+      },
+    );
+    console.log("🚀 ~ refreshToken ~ data:", data.statusCode);
+    const { accessToken, refreshToken } = data;
 
-  return refreshPromise;
+    setCookie(ACCESS_TOKEN_KEY, accessToken);
+
+    setCookie(REFRESH_TOKEN_KEY, refreshToken);
+    return accessToken;
+  } catch (error) {
+    clearTokens();
+    throw error;
+  }
 };
+
+export const memoizedRefreshToken = mem(refreshToken, {
+  maxAge: 10000,
+});

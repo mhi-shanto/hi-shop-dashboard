@@ -1,7 +1,7 @@
 import { Settings, X, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/shared/components/NavLink";
 import { sidebarLinks } from "@/shared/constants/navigation";
+import useLogout from "@/hooks/useLogout";
 
 interface SidebarProps {
   open: boolean;
@@ -35,10 +35,9 @@ const Sidebar = ({ open, onClose }: SidebarProps) => {
 };
 
 const SidebarContent = ({ onClose }: { onClose: () => void }) => {
-  const navigate = useNavigate();
-
+  const { handleLogout } = useLogout();
   const handleSignOut = () => {
-    navigate("/login", { replace: true });
+    handleLogout();
   };
 
   return (

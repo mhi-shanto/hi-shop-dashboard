@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, Package } from "lucide-react";
 import { Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeading } from "@/shared/components/PageHeading";
 import { StatusBadge } from "@/shared/components/StatusBadge";
-import ProductModal, { ProductForm } from "@/features/products/components/ProductModal";
-import { allProducts as initialProducts, Product } from "@/data/products";
+import { Pagination } from "@/shared/components/Pagination";
+import { useNavigate } from "react-router-dom";
+import useGetProducts from "../hooks/useGetProducts";
+import type { DecimalValue } from "../schemas/types";
 
 const stockStatusColors: Record<string, string> = {
   "In Stock": "text-tertiary bg-tertiary/10",
@@ -19,90 +21,30 @@ const getStockStatus = (stock: number) => {
   return "Out";
 };
 
+const parseDecimal = (value: DecimalValue): number => {
+  if (!value || !value.d || value.d.length === 0) return 0;
+  return value.s * value.d[0] * Math.pow(10, value.e - (value.d.length - 1));
+};
+
+const getPrimaryImage = (images: { url: string; altText: string; isPrimary: boolean }[]) => {
+  return images.find((img) => img.isPrimary) ?? images[0];
+};
+
+const getTotalStock = (variants: { stock: number }[]) => {
+  return variants.reduce((sum, v) => sum + v.stock, 0);
+};
+
 const InventoryPage = () => {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const navigate = useNavigate();
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [form, setForm] = useState<ProductForm>({
-    name: "", price: "", material: "", category: "", stock: "",
-  });
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const { products, meta, isLoading } = useGetProducts(page, 20);
 
   const filtered = products.filter(
     (p) =>
       p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.category.toLowerCase().includes(search.toLowerCase())
+      p.category.name.toLowerCase().includes(search.toLowerCase()),
   );
-
-  const openAdd = () => {
-    setForm({ name: "", price: "", material: "", category: "", stock: "" });
-    setImagePreview(null);
-    setEditingProduct(null);
-    setIsModalOpen(true);
-  };
-
-  const openEdit = (p: Product) => {
-    setForm({
-      name: p.name,
-      price: String(p.price),
-      material: p.material,
-      category: p.category,
-      stock: String(p.stock),
-    });
-    setImagePreview(p.image);
-    setEditingProduct(p);
-    setIsModalOpen(true);
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setImagePreview(URL.createObjectURL(file));
-  };
-
-  const saveProduct = () => {
-    if (!form.name || !form.price) return;
-    const productImage = imagePreview ?? initialProducts[0].image;
-
-    if (editingProduct) {
-      setProducts((prev) =>
-        prev.map((p) =>
-          p.id === editingProduct.id
-            ? {
-                ...p,
-                name: form.name,
-                price: Number(form.price),
-                material: form.material,
-                category: form.category,
-                stock: Number(form.stock),
-                image: productImage,
-              }
-            : p
-        )
-      );
-    } else {
-      setProducts((prev) => [
-        ...prev,
-        {
-          id: String(Date.now()),
-          name: form.name,
-          price: Number(form.price),
-          material: form.material,
-          category: form.category,
-          stock: Number(form.stock),
-          image: productImage,
-        },
-      ]);
-    }
-
-    setIsModalOpen(false);
-    setEditingProduct(null);
-    setImagePreview(null);
-  };
-
-  const deleteProduct = (id: string) => {
-    setProducts((prev) => prev.filter((p) => p.id !== id));
-  };
 
   return (
     <div className="px-4 sm:px-6 py-6">
@@ -117,12 +59,11 @@ const InventoryPage = () => {
             className="flex-1 bg-transparent text-sm text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none"
           />
         </div>
-        <Button onClick={openAdd} size="sm">
+        <Button size="sm" onClick={() => navigate("/admin/inventory/new")}>
           <Plus className="h-3.5 w-3.5 mr-1.5" /> Add Product
         </Button>
       </PageHeading>
 
-      {/* Mobile search */}
       <div className="sm:hidden flex items-center bg-surface-container rounded-lg px-3 py-1.5 ghost-border mb-4">
         <Search className="h-3.5 w-3.5 text-on-surface-variant mr-2 shrink-0" />
         <input
@@ -134,27 +75,18 @@ const InventoryPage = () => {
         />
       </div>
 
-      {/* Modal */}
-      {isModalOpen && (
-        <ProductModal
-          isEditing={!!editingProduct}
-          form={form}
-          imagePreview={imagePreview}
-          onFormChange={setForm}
-          onImageChange={handleImageChange}
-          onSave={saveProduct}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
-
-      {/* Table */}
-      <div className="bg-card rounded-xl overflow-hidden ghost-border shadow-[var(--shadow-sm)]">
+      <div className="bg-card rounded-xl overflow-hidden ghost-border shadow-(--shadow-sm)">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px]">
+          <table className="w-full min-w-[600px]">
             <thead>
               <tr className="text-left border-b border-outline-variant/10">
                 <th className="label-text text-[10px] px-5 py-3">Product</th>
-                <th className="label-text text-[10px] px-3 py-3 hidden sm:table-cell">Category</th>
+                <th className="label-text text-[10px] px-3 py-3 hidden sm:table-cell">
+                  Category
+                </th>
+                <th className="label-text text-[10px] px-3 py-3 hidden md:table-cell">
+                  Variants
+                </th>
                 <th className="label-text text-[10px] px-3 py-3">Price</th>
                 <th className="label-text text-[10px] px-3 py-3">Stock</th>
                 <th className="label-text text-[10px] px-3 py-3">Status</th>
@@ -162,75 +94,141 @@ const InventoryPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-on-surface-variant">
-                    No products found.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((product) => (
-                  <tr
-                    key={product.id}
-                    className="hover:bg-surface-container-low/50 transition-colors"
-                  >
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-outline-variant/5 last:border-0">
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-9 w-9 rounded-lg object-cover shrink-0 bg-surface-container"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-on-surface truncate">{product.name}</p>
-                          <p className="text-xs text-on-surface-variant truncate">{product.material}</p>
+                        <div className="h-9 w-9 rounded-lg bg-surface-container animate-pulse shrink-0" />
+                        <div className="space-y-1.5 flex-1">
+                          <div className="h-3 w-28 rounded bg-surface-container animate-pulse" />
+                          <div className="h-2.5 w-16 rounded bg-surface-container animate-pulse" />
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-sm text-on-surface-variant hidden sm:table-cell">
-                      {product.category}
-                    </td>
-                    <td className="px-3 py-3 text-sm font-semibold text-on-surface">
-                      ${product.price.toLocaleString()}
-                    </td>
-                    <td className="px-3 py-3 text-sm text-on-surface">{product.stock}</td>
-                    <td className="px-3 py-3">
-                      <StatusBadge
-                        status={getStockStatus(product.stock)}
-                        colorMap={stockStatusColors}
-                      />
-                    </td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => openEdit(product)}
-                          className="text-on-surface-variant hover:text-primary transition-colors p-1"
-                          aria-label="Edit product"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={() => deleteProduct(product.id)}
-                          className="text-on-surface-variant hover:text-destructive transition-colors p-1"
-                          aria-label="Delete product"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    {[...Array(5)].map((_, j) => (
+                      <td key={j} className="px-3 py-3">
+                        <div className="h-3 w-16 rounded bg-surface-container animate-pulse" />
+                      </td>
+                    ))}
                   </tr>
                 ))
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <Package className="h-8 w-8 text-on-surface-variant/30" />
+                      <p className="text-sm text-on-surface-variant">No products found.</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((product) => {
+                  const primaryImage = getPrimaryImage(product.images);
+                  const totalStock = getTotalStock(product.variants);
+                  const price = parseDecimal(product.basePrice);
+
+                  return (
+                    <tr
+                      key={product.id}
+                      className="border-b border-outline-variant/5 last:border-0 hover:bg-surface-container-low/50 transition-colors"
+                    >
+                      <td className="px-5 py-3">
+                        <div className="flex items-center gap-2.5">
+                          {primaryImage ? (
+                            <img
+                              src={primaryImage.url}
+                              alt={primaryImage.altText}
+                              className="h-9 w-9 rounded-lg object-cover shrink-0 bg-surface-container"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-lg bg-surface-container shrink-0 flex items-center justify-center">
+                              <Package className="h-4 w-4 text-on-surface-variant/40" />
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-on-surface truncate">
+                              {product.name}
+                            </p>
+                            <p className="text-xs text-on-surface-variant truncate max-w-[160px]">
+                              {product.description}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 hidden sm:table-cell">
+                        <span className="text-xs text-on-surface-variant bg-surface-container px-2 py-0.5 rounded-full">
+                          {product.category.name}
+                        </span>
+                      </td>
+
+                      <td className="px-3 py-3 hidden md:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {product.variants.map((v) => (
+                            <span
+                              key={v.id}
+                              className="text-[10px] font-medium text-on-surface-variant bg-surface-container px-1.5 py-0.5 rounded"
+                            >
+                              {v.size} · {v.color}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-3 text-sm font-semibold text-on-surface">
+                        ${price.toFixed(2)}
+                      </td>
+
+                      <td className="px-3 py-3 text-sm text-on-surface">{totalStock}</td>
+
+                      <td className="px-3 py-3">
+                        <StatusBadge
+                          status={getStockStatus(totalStock)}
+                          colorMap={stockStatusColors}
+                        />
+                      </td>
+
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => navigate(`/admin/inventory/${product.id}/edit`)}
+                            className="text-on-surface-variant hover:text-primary transition-colors p-1"
+                            aria-label="Edit product"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            className="text-on-surface-variant hover:text-destructive transition-colors p-1"
+                            aria-label="Delete product"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Footer count */}
-        <div className="px-5 py-3 border-t border-outline-variant/10">
-          <p className="text-xs text-on-surface-variant">
-            {filtered.length} of {products.length} products
-          </p>
-        </div>
+        {meta ? (
+          <Pagination
+            page={meta.page}
+            totalPages={meta.totalPages}
+            total={meta.total}
+            limit={meta.limit}
+            onPageChange={setPage}
+          />
+        ) : (
+          !isLoading && (
+            <div className="px-5 py-3 border-t border-outline-variant/10">
+              <p className="text-xs text-on-surface-variant">{filtered.length} products</p>
+            </div>
+          )
+        )}
       </div>
     </div>
   );

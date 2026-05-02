@@ -4,7 +4,7 @@ import {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from "axios";
-import { clearTokens, memoizedRefreshToken } from "./axios.helper";
+import { memoizedRefreshToken } from "./axios.helper";
 
 interface RetryableRequest extends InternalAxiosRequestConfig {
   _retry?: boolean;
@@ -20,7 +20,8 @@ export const createResponseInterceptor = (instance: AxiosInstance) => {
       error.response?.status === 401 &&
       original &&
       !original._retry &&
-      !original.url?.includes("/auth/refresh-tokens")
+      !original.url?.includes("/auth/refresh") &&
+      !original.url?.includes("/auth/login")
     ) {
       original._retry = true;
 
@@ -30,9 +31,6 @@ export const createResponseInterceptor = (instance: AxiosInstance) => {
         original.headers.Authorization = `Bearer ${newToken}`;
         return instance.request(original);
       }
-
-      clearTokens();
-      window.location.replace("/login");
     }
 
     return Promise.reject(error);
